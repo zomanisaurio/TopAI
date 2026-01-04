@@ -2,124 +2,192 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ragdoll JS - Mobile Friendly</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ragdoll HTML5 Engine</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; }
-        #ui { position: absolute; top: 15px; left: 15px; z-index: 10; background: rgba(0,0,0,0.7); color: white; padding: 15px; border-radius: 10px; pointer-events: auto; }
+        body { margin: 0; overflow: hidden; background: #111; font-family: sans-serif; }
+        #ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); color: white; padding: 15px; border-radius: 8px; max-width: 250px; }
         canvas { display: block; touch-action: none; }
-        input { cursor: pointer; }
+        input[type="file"] { margin-top: 10px; width: 100%; }
+        .hint { font-size: 0.8em; color: #aaa; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <h3 style="margin-top:0">Config Ragdoll</h3>
-    <label>Fond : </label>
-    <input type="color" id="bgColor" value="#00ff00"><br><br>
-    <input type="file" id="fileInput" accept=".glb,.gltf">
-    <p style="font-size: 0.8em; color: #ccc;">Note : Le modèle doit être riggé.</p>
-</div>
+    <div id="ui">
+        <strong style="display:block; margin-bottom:10px;">Ragdoll Physics Engine</strong>
+        <label>Fond : </label>
+        <input type="color" id="bgColor" value="#00ff00">
+        <input type="file" id="fileInput" accept=".glb,.gltf">
+        <div class="hint">PC : Clic gauche (Tourner), Molette (Zoom), Drag (Secouer)<br>Mobile : 1 doigt (Tourner/Drag), 2 doigts (Zoom)</div>
+    </div>
 
-<script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-            "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/+esm"
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/+esm"
+            }
         }
-    }
-</script>
+    </script>
 
-<script type="module">
-    import * as THREE from 'three';
-    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-    import * as CANNON from 'cannon-es';
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import * as CANNON from 'cannon-es';
 
-    // --- SETUP SCENE & PHYSIQUE ---
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x00ff00);
-    
-    const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.82, 0) });
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-    camera.position.set(0, 2, 5);
+        // --- SETUP SCÈNE ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x00ff00);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2, 4);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-    scene.add(ambientLight);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(renderer.domElement);
 
-    // Sol physique (pour que le ragdoll ne tombe pas à l'infini)
-    const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
-    groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-    world.addBody(groundBody);
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
 
-    // --- VARIABLES GLOBALES ---
-    let ragdollParts = []; // Pour lier les os aux corps physiques
-    const loader = new GLTFLoader();
+        const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(5, 10, 5);
+        scene.add(ambient, sun);
 
-    // --- GESTION IMPORT ---
-    document.getElementById('fileInput').addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const url = URL.createObjectURL(file);
+        // --- PHYSIQUE ---
+        const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
         
-        loader.load(url, (gltf) => {
-            const model = gltf.scene;
-            scene.add(model);
+        // Sol
+        const groundBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+        world.addBody(groundBody);
+
+        let ragdollParts = [];
+        let mouseConstraint = null;
+        const dummyBody = new CANNON.Body({ mass: 0 }); // Le point que suit la souris
+        world.addBody(dummyBody);
+
+        // --- INTERACTION ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function getMousePos(e) {
+            const x = e.touches ? e.touches[0].clientX : e.clientX;
+            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            mouse.x = (x / window.innerWidth) * 2 - 1;
+            mouse.y = -(y / window.innerHeight) * 2 + 1;
+        }
+
+        window.addEventListener('pointerdown', (e) => {
+            getMousePos(e);
+            raycaster.setFromCamera(mouse, camera);
             
-            // On parcourt les os pour créer la physique
-            model.traverse((child) => {
-                if (child.isBone) {
-                    createPhysicsForBone(child);
-                }
+            // Vérifier si on attrape un os (physique)
+            const intersects = ragdollParts.filter(p => {
+                const dist = p.body.position.distanceTo(getWorldPoint());
+                return dist < 0.6; // Zone de détection
+            });
+
+            if (intersects.length > 0) {
+                controls.enabled = false;
+                const hit = intersects[0];
+                mouseConstraint = new CANNON.PointToPointConstraint(hit.body, new CANNON.Vec3(0,0,0), dummyBody, new CANNON.Vec3(0,0,0), 1000);
+                world.addConstraint(mouseConstraint);
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            getMousePos(e);
+            dummyBody.position.copy(getWorldPoint());
+        });
+
+        window.addEventListener('pointerup', () => {
+            controls.enabled = true;
+            if (mouseConstraint) {
+                world.removeConstraint(mouseConstraint);
+                mouseConstraint = null;
+            }
+        });
+
+        function getWorldPoint() {
+            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            const distance = 4; // Distance du plan de manipulation
+            return camera.position.clone().add(dir.multiplyScalar(distance));
+        }
+
+        // --- IMPORT MODÈLE ---
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            new GLTFLoader().load(URL.createObjectURL(file), (gltf) => {
+                const model = gltf.scene;
+                scene.add(model);
+                
+                let bones = [];
+                model.traverse(n => { if(n.isBone) bones.push(n); });
+
+                bones.forEach((bone, i) => {
+                    const body = new CANNON.Body({ 
+                        mass: 1, 
+                        shape: new CANNON.Sphere(0.15),
+                        linearDamping: 0.1,
+                        angularDamping: 0.1 
+                    });
+                    const pos = new THREE.Vector3();
+                    bone.getWorldPosition(pos);
+                    body.position.set(pos.x, pos.y, pos.z);
+                    
+                    world.addBody(body);
+                    ragdollParts.push({ bone, body });
+
+                    // Articulation avec le parent (Constraint)
+                    if (bone.parent && bone.parent.isBone) {
+                        const parentPart = ragdollParts.find(p => p.bone === bone.parent);
+                        if (parentPart) {
+                            const c = new CANNON.PointToPointConstraint(body, new CANNON.Vec3(0,0,0), parentPart.body, new CANNON.Vec3(0,0,0));
+                            world.addConstraint(c);
+                        }
+                    }
+                });
             });
         });
-    });
 
-    function createPhysicsForBone(bone) {
-        // On crée une forme physique simple pour chaque os
-        const shape = new CANNON.Box(new CANNON.Vec3(0.1, 0.1, 0.1));
-        const body = new CANNON.Body({ mass: 1, shape: shape });
-        
-        // Position initiale basée sur l'os
-        const worldPos = new THREE.Vector3();
-        bone.getWorldPosition(worldPos);
-        body.position.set(worldPos.x, worldPos.y, worldPos.z);
-        
-        world.addBody(body);
-        ragdollParts.push({ bone: bone, body: body });
-    }
-
-    // --- MISE À JOUR DU FOND ---
-    document.getElementById('bgColor').addEventListener('input', (e) => {
-        scene.background = new THREE.Color(e.target.value);
-    });
-
-    // --- BOUCLE DE RENDU ---
-    function animate() {
-        requestAnimationFrame(animate);
-        
-        // Avancer la physique
-        world.fixedStep();
-
-        // Synchroniser le modèle 3D sur la physique
-        ragdollParts.forEach(part => {
-            part.bone.position.copy(part.body.position);
-            part.bone.quaternion.copy(part.body.quaternion);
+        document.getElementById('bgColor').addEventListener('input', (e) => {
+            scene.background = new THREE.Color(e.target.value);
         });
 
-        renderer.render(scene, camera);
-    }
-    animate();
+        // --- LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            world.fixedStep();
+            controls.update();
 
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-</script>
+            ragdollParts.forEach(p => {
+                // On met à jour l'os 3D avec la position physique
+                p.bone.position.copy(p.body.position);
+                p.bone.quaternion.copy(p.body.quaternion);
+                
+                // On annule les transformations parentales pour que la physique soit reine
+                if(p.bone.parent) {
+                   p.bone.parent.worldToLocal(p.bone.position);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
