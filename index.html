@@ -3,40 +3,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ragdoll Studio - Blender Style</title>
+    <title>Web Ragdoll Studio - SMG4 Style</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1e1e1e; font-family: 'Inter', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; }
         #ui { 
             position: absolute; top: 15px; left: 15px; z-index: 10; 
-            background: rgba(30, 30, 30, 0.95); color: #ececec; padding: 20px; 
-            border-radius: 8px; border: 1px solid #333; width: 250px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+            background: rgba(20, 20, 20, 0.9); color: #00d2ff; padding: 20px; 
+            border-radius: 10px; border: 2px solid #00d2ff; width: 260px;
+            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
         }
-        h2 { font-size: 0.9em; margin: 0 0 15px 0; color: #f39c12; text-transform: uppercase; letter-spacing: 2px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        label { font-size: 0.75em; color: #888; display: block; margin-bottom: 5px; }
-        input[type="file"], input[type="color"], button { 
-            width: 100%; padding: 10px; margin-bottom: 15px; border-radius: 4px; 
-            border: 1px solid #444; background: #2d2d2d; color: white; cursor: pointer;
+        h2 { font-size: 1.2em; margin: 0 0 10px 0; text-align: center; text-shadow: 0 0 5px #00d2ff; }
+        label { font-size: 0.8em; color: #fff; display: block; margin-bottom: 5px; }
+        input, button { 
+            width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 5px; 
+            border: 1px solid #00d2ff; background: #111; color: white; cursor: pointer;
         }
-        button { background: #3d3d3d; border: 1px solid #555; font-weight: bold; }
-        button:hover { background: #4d4d4d; border-color: #f39c12; }
-        .format-alert { color: #e74c3c; font-size: 0.7em; margin-bottom: 15px; padding: 5px; border-left: 2px solid #e74c3c; }
+        button { background: #00d2ff; color: #000; font-weight: bold; }
+        button:hover { background: #0095b5; }
+        .controls-info { font-size: 0.75em; color: #aaa; line-height: 1.4; border-top: 1px solid #333; pt: 10px; }
         canvas { display: block; touch-action: none; }
     </style>
 </head>
 <body>
 
     <div id="ui">
-        <h2>Ragdoll Editor</h2>
-        <div class="format-alert">FORMAT REQUIS : <b>.GLB RIGGÉ</b></div>
-
-        <label>COULEUR DU FOND</label>
+        <h2>MINI GMOD WEB</h2>
+        <label>COULEUR FOND (CHROMA)</label>
         <input type="color" id="bgColor" value="#00ff00">
         
-        <label>MODÈLE (T-POSE AUTO)</label>
+        <label>MODÈLE PERSO (.GLB)</label>
         <input type="file" id="fileInput" accept=".glb">
         
         <button id="resetBtn">RÉINITIALISER TOUT</button>
+        
+        <div class="controls-info">
+            • <b>Grip</b> : Clic Gauche / 1 Doigt<br>
+            • <b>Freeze/Unfreeze</b> : Clic Droit / Appui Long<br>
+            • <b>Vue</b> : Rotation (vide) / Zoom (molette)
+        </div>
     </div>
 
     <script type="importmap">
@@ -55,10 +59,8 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import * as CANNON from 'cannon-es';
 
-        // --- SCÈNE ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x00ff00);
-
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -66,137 +68,107 @@
 
         const controls = new OrbitControls(camera, renderer.domElement);
         controls.enableDamping = true;
+        scene.add(new THREE.AmbientLight(0xffffff, 1), new THREE.DirectionalLight(0xffffff, 1));
 
-        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
-        sun.position.set(5, 10, 7);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8), sun);
-
-        // --- PHYSIQUE ---
         const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
         const ground = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
         ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
         world.addBody(ground);
 
         let ragdollParts = [];
-        let mouseConstraint = null;
         const dummyBody = new CANNON.Body({ mass: 0 });
         world.addBody(dummyBody);
+        let mouseConstraint = null;
 
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         let hoveredMesh = null;
 
-        // --- IMPORTATION ---
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file || !file.name.toLowerCase().endsWith('.glb')) return;
-
             new GLTFLoader().load(URL.createObjectURL(file), (gltf) => {
                 const model = gltf.scene;
                 scene.add(model);
+                model.traverse(n => { if(n.isBone) n.rotation.set(0,0,0); }); // T-POSE
 
-                // FORCER LA T-POSE : On réinitialise les os avant de créer la physique
-                model.traverse(node => {
-                    if (node.isBone) {
-                        node.rotation.set(0, 0, 0);
-                    }
-                });
-
-                // CADRAGE AUTO
                 const box = new THREE.Box3().setFromObject(model);
                 const size = box.getSize(new THREE.Vector3());
                 const center = box.getCenter(new THREE.Vector3());
+                camera.position.set(center.x, center.y, center.z + size.y * 2.5);
                 controls.target.copy(center);
-                camera.position.set(center.x, center.y, center.z + (size.y * 2));
 
-                // CREATION PHYSIQUE
                 model.traverse(node => {
                     if (node.isBone) {
-                        const body = new CANNON.Body({ 
-                            mass: 1, 
-                            shape: new CANNON.Sphere(0.12),
-                            linearDamping: 0.2, angularDamping: 0.2 
-                        });
+                        const body = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(0.12) });
                         const v = new THREE.Vector3();
                         node.getWorldPosition(v);
                         body.position.copy(v);
                         world.addBody(body);
-                        ragdollParts.push({ bone: node, body: body, initPos: v.clone() });
+                        ragdollParts.push({ bone: node, body: body, initPos: v.clone(), frozen: false });
 
                         if (node.parent && node.parent.isBone) {
                             const parent = ragdollParts.find(p => p.bone === node.parent);
-                            if (parent) {
-                                world.addConstraint(new CANNON.PointToPointConstraint(body, new CANNON.Vec3(0,0,0), parent.body, new CANNON.Vec3(0,0,0)));
-                            }
+                            if (parent) world.addConstraint(new CANNON.PointToPointConstraint(body, new CANNON.Vec3(0,0,0), parent.body, new CANNON.Vec3(0,0,0)));
                         }
                     }
-                    // Activer les ombres et matériaux pour le highlight
-                    if(node.isMesh) {
-                        node.castShadow = true;
-                        node.material = node.material.clone(); // Clone pour isoler le changement de couleur
-                    }
+                    if(node.isMesh) node.material = node.material.clone();
                 });
             });
         });
 
-        // --- INTERACTIONS ---
-        function onMove(e) {
-            const x = e.touches ? e.touches[0].clientX : e.clientX;
-            const y = e.touches ? e.touches[0].clientY : e.clientY;
-            mouse.x = (x / window.innerWidth) * 2 - 1;
-            mouse.y = -(y / window.innerHeight) * 2 + 1;
-
-            // HIGHLIGHT SYSTEM (Style Blender)
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(scene.children, true);
-            
-            if (intersects.length > 0) {
-                const target = intersects[0].object;
-                if (hoveredMesh && hoveredMesh !== target) hoveredMesh.material.color.set(0xffffff); // Reset précédent
-                hoveredMesh = target;
-                hoveredMesh.material.color.set(0x888888); // Devient plus foncé au survol
-            } else if (hoveredMesh) {
-                hoveredMesh.material.color.set(0xffffff);
-                hoveredMesh = null;
-            }
-
-            // Sync dummy body for dragging
-            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
-            const dir = vector.sub(camera.position).normalize();
-            dummyBody.position.copy(camera.position.clone().add(dir.multiplyScalar(camera.position.distanceTo(controls.target))));
-        }
-
-        window.addEventListener('pointerdown', () => {
-            let closest = null;
-            let minDist = 0.35;
+        function getTargetPart() {
+            let closest = null; let minDist = 0.35;
             ragdollParts.forEach(p => {
                 const screenPos = p.bone.getWorldPosition(new THREE.Vector3()).project(camera);
                 const d = mouse.distanceTo(new THREE.Vector2(screenPos.x, screenPos.y));
                 if (d < minDist) { minDist = d; closest = p; }
             });
+            return closest;
+        }
 
-            if (closest) {
-                controls.enabled = false;
-                mouseConstraint = new CANNON.PointToPointConstraint(closest.body, new CANNON.Vec3(0,0,0), dummyBody, new CANNON.Vec3(0,0,0), 2000);
-                world.addConstraint(mouseConstraint);
+        window.onpointerdown = (e) => {
+            const part = getTargetPart();
+            if (part) {
+                if (e.button === 2) { // CLIC DROIT = FREEZE
+                    part.frozen = !part.frozen;
+                    part.body.mass = part.frozen ? 0 : 1;
+                    part.body.updateMassProperties();
+                    part.body.velocity.set(0,0,0);
+                } else { // CLIC GAUCHE = DRAG
+                    controls.enabled = false;
+                    mouseConstraint = new CANNON.PointToPointConstraint(part.body, new CANNON.Vec3(0,0,0), dummyBody, new CANNON.Vec3(0,0,0), 2000);
+                    world.addConstraint(mouseConstraint);
+                }
             }
-        });
-
-        window.addEventListener('pointerup', () => {
-            controls.enabled = true;
-            if (mouseConstraint) { world.removeConstraint(mouseConstraint); mouseConstraint = null; }
-        });
-
-        window.addEventListener('pointermove', onMove);
-
-        document.getElementById('resetBtn').onclick = () => {
-            ragdollParts.forEach(p => {
-                p.body.position.copy(p.initPos);
-                p.body.velocity.set(0,0,0);
-                p.body.angularVelocity.set(0,0,0);
-            });
         };
 
+        window.onpointermove = (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+            
+            // Highlight Blender/GMod
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+            if (hoveredMesh) hoveredMesh.material.color.set(0xffffff);
+            if (intersects.length > 0) {
+                hoveredMesh = intersects[0].object;
+                hoveredMesh.material.color.set(0x666666);
+            }
+
+            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
+            const dir = vector.sub(camera.position).normalize();
+            dummyBody.position.copy(camera.position.clone().add(dir.multiplyScalar(camera.position.distanceTo(controls.target))));
+        };
+
+        window.onpointerup = () => {
+            controls.enabled = true;
+            if (mouseConstraint) { world.removeConstraint(mouseConstraint); mouseConstraint = null; }
+        };
+
+        window.oncontextmenu = (e) => e.preventDefault(); // Bloquer menu clic droit
+
+        document.getElementById('resetBtn').onclick = () => location.reload();
         document.getElementById('bgColor').oninput = (e) => scene.background.set(e.target.value);
 
         function animate() {
