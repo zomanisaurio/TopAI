@@ -2,187 +2,173 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Web Ragdoll Studio - SMG4 Style</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SMG4 Puppet Maker - Stop Motion Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; }
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; display: flex; }
         #ui { 
-            position: absolute; top: 15px; left: 15px; z-index: 10; 
-            background: rgba(20, 20, 20, 0.9); color: #00d2ff; padding: 20px; 
-            border-radius: 10px; border: 2px solid #00d2ff; width: 260px;
-            box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+            width: 300px; height: 100vh; background: rgba(20,20,20,0.95); 
+            color: white; padding: 20px; box-sizing: border-box;
+            border-right: 2px solid #00d2ff; overflow-y: auto; z-index: 10;
         }
-        h2 { font-size: 1.2em; margin: 0 0 10px 0; text-align: center; text-shadow: 0 0 5px #00d2ff; }
-        label { font-size: 0.8em; color: #fff; display: block; margin-bottom: 5px; }
-        input, button { 
-            width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 5px; 
-            border: 1px solid #00d2ff; background: #111; color: white; cursor: pointer;
+        .part-upload { margin-bottom: 12px; font-size: 0.85em; background: #333; padding: 8px; border-radius: 5px; }
+        input[type="file"] { width: 100%; margin-top: 5px; }
+        button { 
+            width: 100%; padding: 12px; background: #00d2ff; border: none; 
+            font-weight: bold; cursor: pointer; border-radius: 5px; margin-bottom: 10px;
+            transition: 0.2s;
         }
-        button { background: #00d2ff; color: #000; font-weight: bold; }
-        button:hover { background: #0095b5; }
-        .controls-info { font-size: 0.75em; color: #aaa; line-height: 1.4; border-top: 1px solid #333; pt: 10px; }
-        canvas { display: block; touch-action: none; }
+        button:hover { background: #0095b5; transform: scale(1.02); }
+        #timeline { margin-top: 20px; border-top: 1px solid #444; pt: 10px; }
+        .frame-item { 
+            background: #444; padding: 10px; margin-bottom: 5px; border-radius: 4px; 
+            cursor: pointer; font-size: 0.8em; display: flex; justify-content: space-between;
+        }
+        .frame-item:hover { background: #555; border: 1px solid #00d2ff; }
+        .hint { font-size: 0.75em; color: #888; margin-top: 15px; }
+        canvas { flex-grow: 1; touch-action: none; }
     </style>
 </head>
 <body>
 
-    <div id="ui">
-        <h2>MINI GMOD WEB</h2>
-        <label>COULEUR FOND (CHROMA)</label>
-        <input type="color" id="bgColor" value="#00ff00">
-        
-        <label>MODÈLE PERSO (.GLB)</label>
-        <input type="file" id="fileInput" accept=".glb">
-        
-        <button id="resetBtn">RÉINITIALISER TOUT</button>
-        
-        <div class="controls-info">
-            • <b>Grip</b> : Clic Gauche / 1 Doigt<br>
-            • <b>Freeze/Unfreeze</b> : Clic Droit / Appui Long<br>
-            • <b>Vue</b> : Rotation (vide) / Zoom (molette)
-        </div>
+<div id="ui">
+    <h2 style="color:#00d2ff; text-align:center;">PUPPET MASTER</h2>
+    
+    <div class="part-upload">Tête: <input type="file" id="img-head" accept="image/*"></div>
+    <div class="part-upload">Corps: <input type="file" id="img-body" accept="image/*"></div>
+    <div class="part-upload">Membres: <input type="file" id="img-limb" accept="image/*"></div>
+
+    <button id="spawnBtn">NOUVEAU PANTIN</button>
+    
+    <div id="timeline">
+        <h4 style="margin: 5px 0;">ANIMATION (Stop-Motion)</h4>
+        <button id="savePoseBtn" style="background: #2ecc71;">📸 CAPTURER POSE</button>
+        <div id="frameList"></div>
     </div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
-                "cannon-es": "https://cdn.jsdelivr.net/npm/cannon-es@0.20.0/+esm"
-            }
+    <div class="hint">
+        • <b>Clic Gauche</b> : Déplacer<br>
+        • <b>Clic Droit</b> : Bloquer/Freeze<br>
+        • <b>Chroma Key</b> : <input type="color" id="bgColor" value="#00ff00">
+    </div>
+</div>
+
+<script>
+    const { Engine, Render, Runner, Bodies, Composite, Constraint, MouseConstraint, Mouse, Vector } = Matter;
+
+    const engine = Engine.create();
+    const render = Render.create({
+        element: document.body,
+        engine: engine,
+        options: {
+            width: window.innerWidth - 300,
+            height: window.innerHeight,
+            wireframes: false,
+            background: '#00ff00'
         }
-    </script>
+    });
 
-    <script type="module">
-        import * as THREE from 'three';
-        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-        import * as CANNON from 'cannon-es';
+    Render.run(render);
+    Runner.run(Runner.create(), engine);
 
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x00ff00);
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+    const ground = Bodies.rectangle((window.innerWidth-300)/2, window.innerHeight + 50, 2000, 100, { isStatic: true });
+    Composite.add(engine.world, ground);
 
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        scene.add(new THREE.AmbientLight(0xffffff, 1), new THREE.DirectionalLight(0xffffff, 1));
+    let textures = { head: null, body: null, limb: null };
+    let currentPuppet = [];
+    let savedPoses = [];
 
-        const world = new CANNON.World({ gravity: new CANNON.Vec3(0, -9.81, 0) });
-        const ground = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
-        ground.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
-        world.addBody(ground);
-
-        let ragdollParts = [];
-        const dummyBody = new CANNON.Body({ mass: 0 });
-        world.addBody(dummyBody);
-        let mouseConstraint = null;
-
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        let hoveredMesh = null;
-
-        document.getElementById('fileInput').addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file || !file.name.toLowerCase().endsWith('.glb')) return;
-            new GLTFLoader().load(URL.createObjectURL(file), (gltf) => {
-                const model = gltf.scene;
-                scene.add(model);
-                model.traverse(n => { if(n.isBone) n.rotation.set(0,0,0); }); // T-POSE
-
-                const box = new THREE.Box3().setFromObject(model);
-                const size = box.getSize(new THREE.Vector3());
-                const center = box.getCenter(new THREE.Vector3());
-                camera.position.set(center.x, center.y, center.z + size.y * 2.5);
-                controls.target.copy(center);
-
-                model.traverse(node => {
-                    if (node.isBone) {
-                        const body = new CANNON.Body({ mass: 1, shape: new CANNON.Sphere(0.12) });
-                        const v = new THREE.Vector3();
-                        node.getWorldPosition(v);
-                        body.position.copy(v);
-                        world.addBody(body);
-                        ragdollParts.push({ bone: node, body: body, initPos: v.clone(), frozen: false });
-
-                        if (node.parent && node.parent.isBone) {
-                            const parent = ragdollParts.find(p => p.bone === node.parent);
-                            if (parent) world.addConstraint(new CANNON.PointToPointConstraint(body, new CANNON.Vec3(0,0,0), parent.body, new CANNON.Vec3(0,0,0)));
-                        }
-                    }
-                    if(node.isMesh) node.material = node.material.clone();
-                });
-            });
+    // Chargement images
+    document.querySelectorAll('input[type="file"]').forEach(input => {
+        input.addEventListener('change', (e) => {
+            const part = e.target.id.split('-')[1];
+            const reader = new FileReader();
+            reader.onload = (ev) => { textures[part] = ev.target.result; };
+            reader.readAsDataURL(e.target.files[0]);
         });
+    });
 
-        function getTargetPart() {
-            let closest = null; let minDist = 0.35;
-            ragdollParts.forEach(p => {
-                const screenPos = p.bone.getWorldPosition(new THREE.Vector3()).project(camera);
-                const d = mouse.distanceTo(new THREE.Vector2(screenPos.x, screenPos.y));
-                if (d < minDist) { minDist = d; closest = p; }
-            });
-            return closest;
+    document.getElementById('spawnBtn').onclick = () => {
+        // Supprimer l'ancien s'il existe
+        if(currentPuppet.length > 0) Composite.clear(engine.world, true);
+        Composite.add(engine.world, ground);
+
+        const x = (window.innerWidth - 300) / 2;
+        const y = 300;
+
+        const head = Bodies.circle(x, y - 100, 40, { render: { sprite: { texture: textures.head, xScale:0.5, yScale:0.5 } } });
+        const torso = Bodies.rectangle(x, y, 60, 110, { render: { sprite: { texture: textures.body, xScale:0.7, yScale:0.7 } } });
+        
+        // Membres (Bras et Jambes simplifiés)
+        const armL = Bodies.rectangle(x - 50, y - 20, 20, 80, { render: { sprite: { texture: textures.limb } } });
+        const armR = Bodies.rectangle(x + 50, y - 20, 20, 80, { render: { sprite: { texture: textures.limb } } });
+        const legL = Bodies.rectangle(x - 20, y + 90, 25, 90, { render: { sprite: { texture: textures.limb } } });
+        const legR = Bodies.rectangle(x + 20, y + 90, 25, 90, { render: { sprite: { texture: textures.limb } } });
+
+        const constraints = [
+            Constraint.create({ bodyA: head, pointB: { x: 0, y: -55 }, bodyB: torso, stiffness: 0.5, length: 0 }),
+            Constraint.create({ bodyA: torso, pointA: { x: -30, y: -45 }, bodyB: armL, pointB: { x: 0, y: -35 }, stiffness: 0.5 }),
+            Constraint.create({ bodyA: torso, pointA: { x: 30, y: -45 }, bodyB: armR, pointB: { x: 0, y: -35 }, stiffness: 0.5 }),
+            Constraint.create({ bodyA: torso, pointA: { x: -20, y: 50 }, bodyB: legL, pointB: { x: 0, y: -40 }, stiffness: 0.5 }),
+            Constraint.create({ bodyA: torso, pointA: { x: 20, y: 50 }, bodyB: legR, pointB: { x: 0, y: -40 }, stiffness: 0.5 })
+        ];
+
+        currentPuppet = [head, torso, armL, armR, legL, legR];
+        Composite.add(engine.world, [...currentPuppet, ...constraints]);
+    };
+
+    // SYSTÈME DE STOP MOTION
+    document.getElementById('savePoseBtn').onclick = () => {
+        if(currentPuppet.length === 0) return;
+        
+        const pose = currentPuppet.map(part => ({
+            position: { x: part.position.x, y: part.position.y },
+            angle: part.angle
+        }));
+
+        savedPoses.push(pose);
+        updateFrameList();
+    };
+
+    function updateFrameList() {
+        const list = document.getElementById('frameList');
+        list.innerHTML = '';
+        savedPoses.forEach((pose, index) => {
+            const div = document.createElement('div');
+            div.className = 'frame-item';
+            div.innerHTML = `<span>Pose #${index + 1}</span> <span>👁️</span>`;
+            div.onclick = () => applyPose(index);
+            list.appendChild(div);
+        });
+    }
+
+    function applyPose(index) {
+        const pose = savedPoses[index];
+        currentPuppet.forEach((part, i) => {
+            Matter.Body.setPosition(part, pose[i].position);
+            Matter.Body.setAngle(part, pose[i].angle);
+            part.isStatic = true; // On freeze auto pour le stop motion
+        });
+    }
+
+    // Interaction souris
+    const mouse = Mouse.create(render.canvas);
+    const mouseConstraint = MouseConstraint.create(engine, {
+        mouse: mouse,
+        constraint: { stiffness: 0.1, render: { visible: false } }
+    });
+    Composite.add(engine.world, mouseConstraint);
+
+    window.addEventListener('mousedown', (e) => {
+        if (e.button === 2 && mouseConstraint.body) {
+            mouseConstraint.body.isStatic = !mouseConstraint.body.isStatic;
         }
+    });
+    window.addEventListener('contextmenu', e => e.preventDefault());
 
-        window.onpointerdown = (e) => {
-            const part = getTargetPart();
-            if (part) {
-                if (e.button === 2) { // CLIC DROIT = FREEZE
-                    part.frozen = !part.frozen;
-                    part.body.mass = part.frozen ? 0 : 1;
-                    part.body.updateMassProperties();
-                    part.body.velocity.set(0,0,0);
-                } else { // CLIC GAUCHE = DRAG
-                    controls.enabled = false;
-                    mouseConstraint = new CANNON.PointToPointConstraint(part.body, new CANNON.Vec3(0,0,0), dummyBody, new CANNON.Vec3(0,0,0), 2000);
-                    world.addConstraint(mouseConstraint);
-                }
-            }
-        };
+    document.getElementById('bgColor').oninput = (e) => render.options.background = e.target.value;
 
-        window.onpointermove = (e) => {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-            
-            // Highlight Blender/GMod
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects(scene.children, true);
-            if (hoveredMesh) hoveredMesh.material.color.set(0xffffff);
-            if (intersects.length > 0) {
-                hoveredMesh = intersects[0].object;
-                hoveredMesh.material.color.set(0x666666);
-            }
-
-            const vector = new THREE.Vector3(mouse.x, mouse.y, 0.5).unproject(camera);
-            const dir = vector.sub(camera.position).normalize();
-            dummyBody.position.copy(camera.position.clone().add(dir.multiplyScalar(camera.position.distanceTo(controls.target))));
-        };
-
-        window.onpointerup = () => {
-            controls.enabled = true;
-            if (mouseConstraint) { world.removeConstraint(mouseConstraint); mouseConstraint = null; }
-        };
-
-        window.oncontextmenu = (e) => e.preventDefault(); // Bloquer menu clic droit
-
-        document.getElementById('resetBtn').onclick = () => location.reload();
-        document.getElementById('bgColor').oninput = (e) => scene.background.set(e.target.value);
-
-        function animate() {
-            requestAnimationFrame(animate);
-            world.fixedStep();
-            controls.update();
-            ragdollParts.forEach(p => {
-                p.bone.position.copy(p.body.position);
-                p.bone.quaternion.copy(p.body.quaternion);
-                if(p.bone.parent) p.bone.parent.worldToLocal(p.bone.position);
-            });
-            renderer.render(scene, camera);
-        }
-        animate();
-    </script>
+</script>
 </body>
 </html>
