@@ -3,123 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ZinzinBot - IA Locale</title>
+    <title>TopAI - Powered by Python</title>
+    
+    <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
+    <script defer src="https://pyscript.net/latest/pyscript.js"></script>
+
     <style>
-        :root {
-            --bg: #0f172a;
-            --panel: #1e293b;
-            --text: #f8fafc;
-            --accent: #38bdf8;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        #chat-container {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .message {
-            max-width: 80%;
-            padding: 12px 16px;
-            border-radius: 15px;
-            line-height: 1.4;
-        }
-
-        .user {
-            align-self: flex-end;
-            background-color: var(--accent);
-            color: #000;
-        }
-
-        .bot {
-            align-self: flex-start;
-            background-color: var(--panel);
-            border: 1px solid #334155;
-        }
-
-        #input-area {
-            background-color: var(--panel);
-            padding: 20px;
-            display: flex;
-            gap: 10px;
-            border-top: 1px solid #334155;
-        }
-
-        input {
-            flex: 1;
-            background: #0f172a;
-            border: 1px solid #475569;
-            padding: 12px;
-            border-radius: 8px;
-            color: white;
-            outline: none;
-        }
-
-        button {
-            background: var(--accent);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        button:hover { opacity: 0.9; }
+        /* (Même CSS qu'avant, je le compresse pour la lisibilité) */
+        :root { --bg-color: #1a1a1a; --sidebar-color: #252525; --text-color: #ffffff; --accent-color: #007bff; }
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-color); color: var(--text-color); overflow: hidden; }
+        #sidebar { width: 260px; background: var(--sidebar-color); height: 100%; position: absolute; transform: translateX(-100%); transition: 0.3s; z-index: 10; display: flex; flex-direction: column; }
+        #sidebar.open { transform: translateX(0); }
+        #main-chat { flex-grow: 1; display: flex; flex-direction: column; width: 100%; }
+        #chat-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; background: #444; }
+        .user-msg { align-self: flex-end; background: var(--accent-color); }
+        #input-area { padding: 20px; display: flex; gap: 10px; }
+        input { flex-grow: 1; padding: 12px; background: #333; border: 1px solid #555; color: white; border-radius: 5px;}
+        /* Loader pour PyScript */
+        #loader { position: absolute; top: 10px; right: 10px; color: #00ff00; font-size: 0.8rem; display: none; }
     </style>
 </head>
 <body>
 
-    <div id="chat-container">
-        <div class="message bot">Salut ! Je suis ton IA codée de zéro. Dis-moi un truc zinzin.</div>
+    <div id="loader">Chargement du cerveau Python...</div>
+
+    <div id="sidebar">
+        <h2 style="padding:20px;">Historique</h2>
+        <div style="padding:10px;"><button id="new-chat-btn" style="width:100%; padding:10px;">+ Nouveau</button></div>
+        <ul id="history-list" style="list-style:none; padding:0;"></ul>
     </div>
 
-    <div id="input-area">
-        <input type="text" id="user-input" placeholder="Écris ici..." autocomplete="off">
-        <button onclick="sendMessage()">Envoyer</button>
+    <div id="main-chat">
+        <header style="padding:15px; background:var(--bg-color); border-bottom:1px solid #333; display:flex;">
+            <button id="menu-btn" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer; margin-right:15px;">☰</button>
+            <h1>TopAI <span style="font-size:0.5em; color:yellow;">(Python Core)</span></h1>
+        </header>
+
+        <div id="chat-window">
+            <div class="message">Initialisation des systèmes neuronaux Python... Patientez un instant.</div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Parle à l'IA...">
+            <button id="send-btn" py-click="process_input" style="padding:10px 20px; background:var(--accent-color); border:none; color:white; border-radius:5px; cursor:pointer;">Envoyer</button>
+        </div>
     </div>
+
+    <py-script>
+        import random
+        import js
+        from js import document, localStorage, JSON
+
+        # Le Cerveau en pur Python
+        class PythonBrain:
+            def __init__(self):
+                self.vocabulary = ["bonjour", "salut", "ça", "va", "bien", "python", "code", "zinzin"]
+                self.intents = ["salutation", "humeur", "tech", "projet"]
+                # Simulation de poids (matrices)
+                self.weights = {word: random.random() for word in self.vocabulary}
+
+            def think(self, text):
+                text = text.lower()
+                score_max = 0
+                detected_intent = "inconnu"
+
+                # Logique simple de détection (mock-up de réseau de neurones)
+                for word in self.vocabulary:
+                    if word in text:
+                        # Ici on ferait le vrai calcul matriciel
+                        if word in ["bonjour", "salut"]: return "salutation"
+                        if word in ["ça", "va", "bien"]: return "humeur"
+                        if word in ["python", "code"]: return "tech"
+                        if word in ["zinzin"]: return "projet"
+                
+                return "inconnu"
+
+        brain = PythonBrain()
+
+        responses = {
+            "salutation": ["Salut humain !", "Hello world.", "Namasté."],
+            "humeur": ["Mes circuits logiques sont au vert.", "Je suis en pleine forme binaire."],
+            "tech": ["Python est ma langue maternelle.", "Le code HTML me sert de corps, Python est mon âme."],
+            "projet": ["C'est un projet de zinzin !", "On va révolutionner le web local."],
+            "inconnu": ["Je ne comprends pas encore ce concept.", "Peux-tu reformuler pour mon noyau Python ?"]
+        }
+
+        def add_message_to_ui(text, sender):
+            chat_window = document.getElementById("chat-window")
+            div = document.createElement("div")
+            div.className = f"message {'user-msg' if sender == 'user' else ''}"
+            div.innerText = text
+            chat_window.appendChild(div)
+            chat_window.scrollTop = chat_window.scrollHeight
+
+        # Fonction appelée quand on clique sur "Envoyer"
+        def process_input(*args):
+            input_el = document.getElementById("user-input")
+            text = input_el.value
+            
+            if not text:
+                return
+
+            # 1. Afficher message user
+            add_message_to_ui(text, "user")
+            input_el.value = ""
+
+            # 2. Le cerveau Python réfléchit
+            intent = brain.think(text)
+            reply = random.choice(responses[intent])
+
+            # 3. Afficher réponse IA
+            add_message_to_ui(reply, "ai")
+
+            # 4. Sauvegarde (Appel au LocalStorage via JS bridge)
+            # (Simplifié pour l'exemple, on peut appeler les fonctions JS d'ici)
+
+        # Petit message pour dire que Python est chargé
+        add_message_to_ui(">> Système Python chargé. Je t'écoute.", "ai")
+
+    </py-script>
 
     <script>
-        const chatContainer = document.getElementById('chat-container');
-        const userInput = document.getElementById('user-input');
-
-        function sendMessage() {
-            const text = userInput.value.trim();
-            if (!text) return;
-
-            // Ajouter le message utilisateur
-            appendMessage(text, 'user');
-            userInput.value = '';
-
-            // Simulation de réponse (en attendant le cerveau)
-            setTimeout(() => {
-                appendMessage("Mon cerveau est encore vide, mais je t'écoute !", 'bot');
-            }, 600);
-        }
-
-        function appendMessage(text, side) {
-            const msgDiv = document.createElement('div');
-            msgDiv.classList.add('message', side);
-            msgDiv.innerText = text;
-            chatContainer.appendChild(msgDiv);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        // Envoyer avec la touche Entrée
-        userInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
+        // Gestion du menu (UI pure)
+        document.getElementById('menu-btn').addEventListener('click', () => {
+            document.getElementById('sidebar').classList.toggle('open');
+        });
+        
+        // On permet de valider avec "Entrée"
+        document.getElementById('user-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                // On simule le clic qui déclenche le Python
+                document.getElementById('send-btn').click();
+            }
         });
     </script>
 </body>
