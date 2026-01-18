@@ -3,139 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TopAI - Powered by Python</title>
-    
+    <title>TopAI - Générative</title>
     <link rel="stylesheet" href="https://pyscript.net/latest/pyscript.css" />
     <script defer src="https://pyscript.net/latest/pyscript.js"></script>
 
     <style>
-        /* (Même CSS qu'avant, je le compresse pour la lisibilité) */
-        :root { --bg-color: #1a1a1a; --sidebar-color: #252525; --text-color: #ffffff; --accent-color: #007bff; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-color); color: var(--text-color); overflow: hidden; }
-        #sidebar { width: 260px; background: var(--sidebar-color); height: 100%; position: absolute; transform: translateX(-100%); transition: 0.3s; z-index: 10; display: flex; flex-direction: column; }
-        #sidebar.open { transform: translateX(0); }
-        #main-chat { flex-grow: 1; display: flex; flex-direction: column; width: 100%; }
-        #chat-window { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        .message { max-width: 80%; padding: 10px 15px; border-radius: 15px; background: #444; }
-        .user-msg { align-self: flex-end; background: var(--accent-color); }
-        #input-area { padding: 20px; display: flex; gap: 10px; }
-        input { flex-grow: 1; padding: 12px; background: #333; border: 1px solid #555; color: white; border-radius: 5px;}
-        /* Loader pour PyScript */
-        #loader { position: absolute; top: 10px; right: 10px; color: #00ff00; font-size: 0.8rem; display: none; }
+        :root { --bg: #0f0f0f; --sidebar: #181818; --user: #0056b3; --ai: #2a2a2a; }
+        body { font-family: 'Consolas', 'Courier New', monospace; background: var(--bg); color: #ddd; display: flex; height: 100vh; margin: 0; overflow: hidden; }
+        
+        /* Sidebar */
+        #sidebar { width: 250px; background: var(--sidebar); border-right: 1px solid #333; display: flex; flex-direction: column; padding: 10px; }
+        h2 { color: #00ff41; text-shadow: 0 0 5px #00ff41; margin-bottom: 20px; text-align: center;}
+        .stat-box { font-size: 0.8rem; color: #888; margin-top: auto; padding: 10px; border-top: 1px solid #333; }
+
+        /* Chat */
+        #main { flex-grow: 1; display: flex; flex-direction: column; position: relative; }
+        #chat-window { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
+        
+        .message { max-width: 85%; padding: 15px; border-radius: 5px; line-height: 1.6; animation: fadeIn 0.3s ease; }
+        .user { align-self: flex-end; background: var(--user); color: white; border-bottom-right-radius: 0; }
+        .ai { align-self: flex-start; background: var(--ai); border-left: 3px solid #00ff41; border-bottom-left-radius: 0; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Input */
+        #input-area { padding: 20px; background: var(--sidebar); display: flex; gap: 10px; }
+        input { flex-grow: 1; background: #000; border: 1px solid #333; color: #00ff41; padding: 12px; font-family: inherit; }
+        button { background: #00ff41; color: black; border: none; padding: 0 20px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00cc33; }
+        
+        /* Loader */
+        #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #00ff41; font-size: 1.2rem; background: rgba(0,0,0,0.8); padding: 20px; z-index: 100;}
     </style>
 </head>
 <body>
 
-    <div id="loader">Chargement du cerveau Python...</div>
+    <div id="loading">Initialisation du Réseau de Neurones...</div>
 
     <div id="sidebar">
-        <h2 style="padding:20px;">Historique</h2>
-        <div style="padding:10px;"><button id="new-chat-btn" style="width:100%; padding:10px;">+ Nouveau</button></div>
-        <ul id="history-list" style="list-style:none; padding:0;"></ul>
+        <h2>TopAI_GEN</h2>
+        <div style="font-size:0.8rem; line-height:1.5;">
+            Mode: <span style="color:#00ff41">Génératif</span><br>
+            Moteur: <span style="color:yellow">Python N-Gram</span><br>
+            État: <span id="status">Chargement...</span>
+        </div>
+        <div class="stat-box">
+            Mots appris: <span id="word-count">0</span>
+        </div>
     </div>
 
-    <div id="main-chat">
-        <header style="padding:15px; background:var(--bg-color); border-bottom:1px solid #333; display:flex;">
-            <button id="menu-btn" style="background:none; border:none; color:white; font-size:1.5rem; cursor:pointer; margin-right:15px;">☰</button>
-            <h1>TopAI <span style="font-size:0.5em; color:yellow;">(Python Core)</span></h1>
-        </header>
-
+    <div id="main">
         <div id="chat-window">
-            <div class="message">Initialisation des systèmes neuronaux Python... Patientez un instant.</div>
+            <div class="message ai">Bonjour. Je suis prêt à générer du contenu riche basé sur mes données d'apprentissage. Donne-moi un sujet ou un mot clé.</div>
         </div>
-
         <div id="input-area">
-            <input type="text" id="user-input" placeholder="Parle à l'IA...">
-            <button id="send-btn" py-click="process_input" style="padding:10px 20px; background:var(--accent-color); border:none; color:white; border-radius:5px; cursor:pointer;">Envoyer</button>
+            <input type="text" id="user-input" placeholder="Lancer le générateur...">
+            <button id="send-btn" py-click="process_input">GO</button>
         </div>
     </div>
 
     <py-script>
         import random
-        import js
-        from js import document, localStorage, JSON
+        from js import document
 
-        # Le Cerveau en pur Python
-        class PythonBrain:
+        # --- 1. La Base de Connaissance (Le "Corpus") ---
+        # Plus ce texte est long, plus l'IA est "intelligente" et riche.
+        # Tu pourras remplacer ça par le texte d'un livre entier plus tard.
+        corpus = """
+        L'intelligence artificielle est une technologie fascinante qui permet aux machines d'apprendre. 
+        Le futur de l'humanité dépend de notre capacité à coder des algorithmes éthiques et puissants. 
+        TopAI est un projet zinzin créé pour tester les limites du code local. 
+        Les ordinateurs peuvent-ils penser ? C'est une question complexe. 
+        En programmation, la logique est reine, mais l'imagination est le roi.
+        Pour créer un chatbot riche, il faut beaucoup de données. 
+        Le code est une forme d'art moderne qui structure notre réalité numérique.
+        Je suis une entité numérique vivant dans ton navigateur, libre et indépendante.
+        La sauvegarde locale permet de protéger tes données privées contre les serveurs distants.
+        J'aime apprendre de nouvelles phrases et construire des concepts abstraits.
+        """
+
+        class GenerativeBrain:
             def __init__(self):
-                self.vocabulary = ["bonjour", "salut", "ça", "va", "bien", "python", "code", "zinzin"]
-                self.intents = ["salutation", "humeur", "tech", "projet"]
-                # Simulation de poids (matrices)
-                self.weights = {word: random.random() for word in self.vocabulary}
+                self.markov_chain = {}
+                self.vocabulary = []
+                self.n_gram = 2 # L'IA regarde des groupes de 2 mots pour prédire le 3ème
 
-            def think(self, text):
-                text = text.lower()
-                score_max = 0
-                detected_intent = "inconnu"
-
-                # Logique simple de détection (mock-up de réseau de neurones)
-                for word in self.vocabulary:
-                    if word in text:
-                        # Ici on ferait le vrai calcul matriciel
-                        if word in ["bonjour", "salut"]: return "salutation"
-                        if word in ["ça", "va", "bien"]: return "humeur"
-                        if word in ["python", "code"]: return "tech"
-                        if word in ["zinzin"]: return "projet"
+            def train(self, text):
+                # Nettoyage basique
+                words = text.replace('.', ' .').split()
+                self.vocabulary = list(set(words))
                 
-                return "inconnu"
+                # Apprentissage des paires de mots
+                for i in range(len(words) - self.n_gram):
+                    # On crée une clé (ex: "L'intelligence artificielle")
+                    key = tuple(words[i:i + self.n_gram])
+                    next_word = words[i + self.n_gram]
+                    
+                    if key not in self.markov_chain:
+                        self.markov_chain[key] = []
+                    self.markov_chain[key].append(next_word)
 
-        brain = PythonBrain()
+            def generate(self, start_text, length=30):
+                # Essayer de trouver une amorce dans le texte utilisateur
+                start_words = start_text.split()
+                current_tuple = None
+                
+                # On cherche si les derniers mots de l'user existent dans notre cerveau
+                if len(start_words) >= self.n_gram:
+                    last_two = tuple(start_words[-self.n_gram:])
+                    if last_two in self.markov_chain:
+                        current_tuple = last_two
 
-        responses = {
-            "salutation": ["Salut humain !", "Hello world.", "Namasté."],
-            "humeur": ["Mes circuits logiques sont au vert.", "Je suis en pleine forme binaire."],
-            "tech": ["Python est ma langue maternelle.", "Le code HTML me sert de corps, Python est mon âme."],
-            "projet": ["C'est un projet de zinzin !", "On va révolutionner le web local."],
-            "inconnu": ["Je ne comprends pas encore ce concept.", "Peux-tu reformuler pour mon noyau Python ?"]
-        }
+                # Si on ne trouve pas, on prend un point de départ au hasard
+                if not current_tuple:
+                    current_tuple = random.choice(list(self.markov_chain.keys()))
+                
+                output = list(current_tuple)
+                
+                # Génération mot après mot
+                for _ in range(length):
+                    if current_tuple in self.markov_chain:
+                        possible_words = self.markov_chain[current_tuple]
+                        next_word = random.choice(possible_words)
+                        output.append(next_word)
+                        
+                        # On décale la fenêtre (on oublie le premier mot, on ajoute le nouveau)
+                        current_tuple = tuple(output[-self.n_gram:])
+                    else:
+                        break # Cul-de-sac neuronal
+                
+                # Reconstruire la phrase proprement
+                return " ".join(output).replace(" .", ".")
 
-        def add_message_to_ui(text, sender):
-            chat_window = document.getElementById("chat-window")
+        # Initialisation
+        brain = GenerativeBrain()
+        brain.train(corpus)
+
+        # Mise à jour UI
+        document.getElementById("loading").style.display = "none"
+        document.getElementById("status").innerText = "Opérationnel"
+        document.getElementById("status").style.color = "#00ff41"
+        document.getElementById("word-count").innerText = str(len(brain.vocabulary))
+
+        def add_msg(text, type):
             div = document.createElement("div")
-            div.className = f"message {'user-msg' if sender == 'user' else ''}"
+            div.className = f"message {type}"
             div.innerText = text
-            chat_window.appendChild(div)
-            chat_window.scrollTop = chat_window.scrollHeight
+            chat = document.getElementById("chat-window")
+            chat.appendChild(div)
+            chat.scrollTop = chat.scrollHeight
 
-        # Fonction appelée quand on clique sur "Envoyer"
         def process_input(*args):
-            input_el = document.getElementById("user-input")
-            text = input_el.value
+            inp = document.getElementById("user-input")
+            text = inp.value
+            if not text: return
             
-            if not text:
-                return
+            add_msg(text, "user")
+            inp.value = ""
+            
+            # L'IA génère une réponse développée
+            response = brain.generate(text, length=25)
+            add_msg(response, "ai")
 
-            # 1. Afficher message user
-            add_message_to_ui(text, "user")
-            input_el.value = ""
-
-            # 2. Le cerveau Python réfléchit
-            intent = brain.think(text)
-            reply = random.choice(responses[intent])
-
-            # 3. Afficher réponse IA
-            add_message_to_ui(reply, "ai")
-
-            # 4. Sauvegarde (Appel au LocalStorage via JS bridge)
-            # (Simplifié pour l'exemple, on peut appeler les fonctions JS d'ici)
-
-        # Petit message pour dire que Python est chargé
-        add_message_to_ui(">> Système Python chargé. Je t'écoute.", "ai")
+            # Bonus : L'IA apprend de ce que TU lui dis en temps réel !
+            brain.train(text) 
+            document.getElementById("word-count").innerText = str(len(brain.vocabulary))
 
     </py-script>
 
     <script>
-        // Gestion du menu (UI pure)
-        document.getElementById('menu-btn').addEventListener('click', () => {
-            document.getElementById('sidebar').classList.toggle('open');
-        });
-        
-        // On permet de valider avec "Entrée"
+        // JS Bridge pour gérer la touche Entrée
         document.getElementById('user-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                // On simule le clic qui déclenche le Python
-                document.getElementById('send-btn').click();
-            }
+            if (e.key === 'Enter') document.getElementById('send-btn').click();
         });
     </script>
 </body>
