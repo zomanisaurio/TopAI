@@ -3,172 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMG4 Puppet Maker - Stop Motion Edition</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <title>ZinzinBot - IA Locale</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Segoe UI', sans-serif; display: flex; }
-        #ui { 
-            width: 300px; height: 100vh; background: rgba(20,20,20,0.95); 
-            color: white; padding: 20px; box-sizing: border-box;
-            border-right: 2px solid #00d2ff; overflow-y: auto; z-index: 10;
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --text: #f8fafc;
+            --accent: #38bdf8;
         }
-        .part-upload { margin-bottom: 12px; font-size: 0.85em; background: #333; padding: 8px; border-radius: 5px; }
-        input[type="file"] { width: 100%; margin-top: 5px; }
-        button { 
-            width: 100%; padding: 12px; background: #00d2ff; border: none; 
-            font-weight: bold; cursor: pointer; border-radius: 5px; margin-bottom: 10px;
-            transition: 0.2s;
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
-        button:hover { background: #0095b5; transform: scale(1.02); }
-        #timeline { margin-top: 20px; border-top: 1px solid #444; pt: 10px; }
-        .frame-item { 
-            background: #444; padding: 10px; margin-bottom: 5px; border-radius: 4px; 
-            cursor: pointer; font-size: 0.8em; display: flex; justify-content: space-between;
+
+        #chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
-        .frame-item:hover { background: #555; border: 1px solid #00d2ff; }
-        .hint { font-size: 0.75em; color: #888; margin-top: 15px; }
-        canvas { flex-grow: 1; touch-action: none; }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            line-height: 1.4;
+        }
+
+        .user {
+            align-self: flex-end;
+            background-color: var(--accent);
+            color: #000;
+        }
+
+        .bot {
+            align-self: flex-start;
+            background-color: var(--panel);
+            border: 1px solid #334155;
+        }
+
+        #input-area {
+            background-color: var(--panel);
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            border-top: 1px solid #334155;
+        }
+
+        input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid #475569;
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            outline: none;
+        }
+
+        button {
+            background: var(--accent);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover { opacity: 0.9; }
     </style>
 </head>
 <body>
 
-<div id="ui">
-    <h2 style="color:#00d2ff; text-align:center;">PUPPET MASTER</h2>
-    
-    <div class="part-upload">Tête: <input type="file" id="img-head" accept="image/*"></div>
-    <div class="part-upload">Corps: <input type="file" id="img-body" accept="image/*"></div>
-    <div class="part-upload">Membres: <input type="file" id="img-limb" accept="image/*"></div>
-
-    <button id="spawnBtn">NOUVEAU PANTIN</button>
-    
-    <div id="timeline">
-        <h4 style="margin: 5px 0;">ANIMATION (Stop-Motion)</h4>
-        <button id="savePoseBtn" style="background: #2ecc71;">📸 CAPTURER POSE</button>
-        <div id="frameList"></div>
+    <div id="chat-container">
+        <div class="message bot">Salut ! Je suis ton IA codée de zéro. Dis-moi un truc zinzin.</div>
     </div>
 
-    <div class="hint">
-        • <b>Clic Gauche</b> : Déplacer<br>
-        • <b>Clic Droit</b> : Bloquer/Freeze<br>
-        • <b>Chroma Key</b> : <input type="color" id="bgColor" value="#00ff00">
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Écris ici..." autocomplete="off">
+        <button onclick="sendMessage()">Envoyer</button>
     </div>
-</div>
 
-<script>
-    const { Engine, Render, Runner, Bodies, Composite, Constraint, MouseConstraint, Mouse, Vector } = Matter;
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
 
-    const engine = Engine.create();
-    const render = Render.create({
-        element: document.body,
-        engine: engine,
-        options: {
-            width: window.innerWidth - 300,
-            height: window.innerHeight,
-            wireframes: false,
-            background: '#00ff00'
+        function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            // Ajouter le message utilisateur
+            appendMessage(text, 'user');
+            userInput.value = '';
+
+            // Simulation de réponse (en attendant le cerveau)
+            setTimeout(() => {
+                appendMessage("Mon cerveau est encore vide, mais je t'écoute !", 'bot');
+            }, 600);
         }
-    });
 
-    Render.run(render);
-    Runner.run(Runner.create(), engine);
-
-    const ground = Bodies.rectangle((window.innerWidth-300)/2, window.innerHeight + 50, 2000, 100, { isStatic: true });
-    Composite.add(engine.world, ground);
-
-    let textures = { head: null, body: null, limb: null };
-    let currentPuppet = [];
-    let savedPoses = [];
-
-    // Chargement images
-    document.querySelectorAll('input[type="file"]').forEach(input => {
-        input.addEventListener('change', (e) => {
-            const part = e.target.id.split('-')[1];
-            const reader = new FileReader();
-            reader.onload = (ev) => { textures[part] = ev.target.result; };
-            reader.readAsDataURL(e.target.files[0]);
-        });
-    });
-
-    document.getElementById('spawnBtn').onclick = () => {
-        // Supprimer l'ancien s'il existe
-        if(currentPuppet.length > 0) Composite.clear(engine.world, true);
-        Composite.add(engine.world, ground);
-
-        const x = (window.innerWidth - 300) / 2;
-        const y = 300;
-
-        const head = Bodies.circle(x, y - 100, 40, { render: { sprite: { texture: textures.head, xScale:0.5, yScale:0.5 } } });
-        const torso = Bodies.rectangle(x, y, 60, 110, { render: { sprite: { texture: textures.body, xScale:0.7, yScale:0.7 } } });
-        
-        // Membres (Bras et Jambes simplifiés)
-        const armL = Bodies.rectangle(x - 50, y - 20, 20, 80, { render: { sprite: { texture: textures.limb } } });
-        const armR = Bodies.rectangle(x + 50, y - 20, 20, 80, { render: { sprite: { texture: textures.limb } } });
-        const legL = Bodies.rectangle(x - 20, y + 90, 25, 90, { render: { sprite: { texture: textures.limb } } });
-        const legR = Bodies.rectangle(x + 20, y + 90, 25, 90, { render: { sprite: { texture: textures.limb } } });
-
-        const constraints = [
-            Constraint.create({ bodyA: head, pointB: { x: 0, y: -55 }, bodyB: torso, stiffness: 0.5, length: 0 }),
-            Constraint.create({ bodyA: torso, pointA: { x: -30, y: -45 }, bodyB: armL, pointB: { x: 0, y: -35 }, stiffness: 0.5 }),
-            Constraint.create({ bodyA: torso, pointA: { x: 30, y: -45 }, bodyB: armR, pointB: { x: 0, y: -35 }, stiffness: 0.5 }),
-            Constraint.create({ bodyA: torso, pointA: { x: -20, y: 50 }, bodyB: legL, pointB: { x: 0, y: -40 }, stiffness: 0.5 }),
-            Constraint.create({ bodyA: torso, pointA: { x: 20, y: 50 }, bodyB: legR, pointB: { x: 0, y: -40 }, stiffness: 0.5 })
-        ];
-
-        currentPuppet = [head, torso, armL, armR, legL, legR];
-        Composite.add(engine.world, [...currentPuppet, ...constraints]);
-    };
-
-    // SYSTÈME DE STOP MOTION
-    document.getElementById('savePoseBtn').onclick = () => {
-        if(currentPuppet.length === 0) return;
-        
-        const pose = currentPuppet.map(part => ({
-            position: { x: part.position.x, y: part.position.y },
-            angle: part.angle
-        }));
-
-        savedPoses.push(pose);
-        updateFrameList();
-    };
-
-    function updateFrameList() {
-        const list = document.getElementById('frameList');
-        list.innerHTML = '';
-        savedPoses.forEach((pose, index) => {
-            const div = document.createElement('div');
-            div.className = 'frame-item';
-            div.innerHTML = `<span>Pose #${index + 1}</span> <span>👁️</span>`;
-            div.onclick = () => applyPose(index);
-            list.appendChild(div);
-        });
-    }
-
-    function applyPose(index) {
-        const pose = savedPoses[index];
-        currentPuppet.forEach((part, i) => {
-            Matter.Body.setPosition(part, pose[i].position);
-            Matter.Body.setAngle(part, pose[i].angle);
-            part.isStatic = true; // On freeze auto pour le stop motion
-        });
-    }
-
-    // Interaction souris
-    const mouse = Mouse.create(render.canvas);
-    const mouseConstraint = MouseConstraint.create(engine, {
-        mouse: mouse,
-        constraint: { stiffness: 0.1, render: { visible: false } }
-    });
-    Composite.add(engine.world, mouseConstraint);
-
-    window.addEventListener('mousedown', (e) => {
-        if (e.button === 2 && mouseConstraint.body) {
-            mouseConstraint.body.isStatic = !mouseConstraint.body.isStatic;
+        function appendMessage(text, side) {
+            const msgDiv = document.createElement('div');
+            msgDiv.classList.add('message', side);
+            msgDiv.innerText = text;
+            chatContainer.appendChild(msgDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
         }
-    });
-    window.addEventListener('contextmenu', e => e.preventDefault());
 
-    document.getElementById('bgColor').oninput = (e) => render.options.background = e.target.value;
-
-</script>
+        // Envoyer avec la touche Entrée
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+    </script>
 </body>
 </html>
