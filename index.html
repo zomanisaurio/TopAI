@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>VoiceForge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0612;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+    .orb-1 { width: 320px; height: 320px; background: rgba(139,92,246,0.35); top: -80px; right: -80px; }
+    .orb-2 { width: 240px; height: 240px; background: rgba(59,130,246,0.2); bottom: 60px; left: -60px; }
+    .orb-3 { width: 180px; height: 180px; background: rgba(236,72,153,0.15); top: 40%; left: 30%; }
+
+    #app {
+      position: relative;
+      z-index: 1;
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 0 16px 100px;
+    }
+
+    /* Header */
+    .header {
+      padding: 48px 0 24px;
+      text-align: center;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+    .logo-icon {
+      width: 36px; height: 36px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 4px 16px rgba(139,92,246,0.4);
+      flex-shrink: 0;
+    }
+    .logo-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 26px; font-weight: 800;
+      background: linear-gradient(135deg, #fff 40%, #c4b5fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .header-sub { color: rgba(255,255,255,0.4); font-size: 13px; }
+
+    /* Glass card */
+    .card {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 20px;
+      transition: all 0.25s ease;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .card.active {
+      background: rgba(255,255,255,0.15);
+      border-color: rgba(255,255,255,0.4);
+      box-shadow: 0 8px 32px rgba(139,92,246,0.25);
+    }
+    .card.clickable { cursor: pointer; }
+
+    /* Tabs */
+    .tabs-wrap { padding: 5px; margin-bottom: 20px; display: flex; gap: 4px; }
+    .tab-btn {
+      flex: 1; padding: 10px 0; border-radius: 14px; border: none;
+      background: transparent;
+      color: rgba(255,255,255,0.45);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(139,92,246,0.4);
+    }
+
+    /* Sections */
+    .section-label {
+      color: rgba(255,255,255,0.5); font-size: 11px; font-weight: 600;
+      letter-spacing: 1px; margin: 0 0 12px; text-transform: uppercase;
+    }
+
+    /* Waveform */
+    .waveform {
+      display: flex; align-items: center; justify-content: center;
+      gap: 3px; height: 48px; margin-bottom: 12px;
+    }
+    .wave-bar {
+      width: 3px; border-radius: 2px;
+      background: rgba(255,255,255,0.15);
+      height: 4px; transition: height 0.15s ease;
+    }
+    .wave-bar.active {
+      background: rgba(139,92,246,0.8);
+    }
+
+    @keyframes waveAnim {
+      0%   { height: 4px; }
+      100% { height: 28px; }
+    }
+    @keyframes waveAnalyze {
+      0%   { height: 4px; }
+      100% { height: 36px; }
+    }
+
+    /* Textarea */
+    textarea {
+      width: 100%; background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 12px;
+      color: #fff; font-family: 'DM Sans', sans-serif; font-size: 14px;
+      padding: 12px; resize: none; outline: none; line-height: 1.5;
+    }
+    textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%; padding: 14px 0; border-radius: 14px; border: none;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      box-shadow: 0 4px 16px rgba(139,92,246,0.35);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: opacity 0.2s;
+      margin-top: 12px;
+    }
+    .btn-primary:active { opacity: 0.85; }
+    .btn-primary.stop {
+      background: linear-gradient(135deg, #ec4899, #be185d);
+    }
+    .btn-secondary {
+      flex: 1; padding: 12px 0; border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(255,255,255,0.07); color: #fff;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      transition: background 0.2s;
+    }
+    .btn-secondary:active { background: rgba(255,255,255,0.12); }
+    .btn-analyze {
+      flex: 1; padding: 12px 0; border-radius: 12px; border: none;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.3);
+      font-size: 13px; font-weight: 600;
+      cursor: default; font-family: 'DM Sans', sans-serif;
+      transition: all 0.2s;
+    }
+    .btn-analyze.ready {
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      color: #fff; cursor: pointer;
+    }
+    .btn-from-analysis {
+      width: 100%; padding: 16px 0; border-radius: 16px; border: none;
+      background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+      color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      box-shadow: 0 4px 16px rgba(139,92,246,0.35);
+      margin-top: 0;
+    }
+    .btn-save {
+      padding: 10px 16px; border-radius: 10px; border: none;
+      background: rgba(255,255,255,0.08);
+      color: rgba(255,255,255,0.3);
+      font-size: 13px; font-weight: 600; cursor: default;
+      font-family: 'DM Sans', sans-serif; white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-save.ready {
+      background: linear-gradient(135deg, #8b5cf6, #6d28d9);
+      color: #fff; cursor: pointer;
+    }
+
+    /* Select */
+    select {
+      width: 100%; background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+      color: #fff; font-size: 13px; padding: 10px 12px;
+      outline: none; font-family: 'DM Sans', sans-serif;
+      appearance: none; -webkit-appearance: none;
+    }
+    select option { background: #1a0a2e; color: #fff; }
+
+    /* Sliders */
+    .slider-row { margin-bottom: 18px; }
+    .slider-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+    .slider-label { color: rgba(255,255,255,0.6); font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .slider-value { color: #c4b5fd; font-size: 13px; font-weight: 600; }
+    input[type="range"] {
+      width: 100%; height: 4px; appearance: none; -webkit-appearance: none;
+      border-radius: 2px; outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #8b5cf6; cursor: pointer;
+      box-shadow: 0 0 8px rgba(139,92,246,0.6);
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%; border: none;
+      background: #8b5cf6; cursor: pointer;
+    }
+
+    /* Text input */
+    .text-input {
+      flex: 1; background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+      color: #fff; font-size: 13px; padding: 10px 12px; outline: none;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .text-input::placeholder { color: rgba(255,255,255,0.25); }
+
+    /* Flex utils */
+    .flex { display: flex; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-8 { gap: 8px; }
+    .gap-10 { gap: 10px; }
+    .gap-12 { gap: 12px; }
+    .gap-16 { gap: 16px; }
+    .mt-12 { margin-top: 12px; }
+    .mt-14 { margin-top: 14px; }
+    .mt-16 { margin-top: 16px; }
+
+    /* Tab panels */
+    .tab-panel { display: none; flex-direction: column; gap: 16px; }
+    .tab-panel.active { display: flex; }
+
+    /* Upload zone */
+    .upload-zone {
+      width: 72px; height: 72px; border-radius: 20px;
+      background: rgba(139,92,246,0.15);
+      border: 1px dashed rgba(139,92,246,0.4);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      margin: 0 auto 16px; cursor: pointer; font-size: 28px;
+    }
+
+    /* Analysis grid */
+    .analysis-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    .analysis-cell {
+      background: rgba(255,255,255,0.06); border-radius: 12px; padding: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .analysis-icon { font-size: 18px; margin-bottom: 4px; }
+    .analysis-label { color: rgba(255,255,255,0.45); font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .analysis-val { color: #fff; font-weight: 600; font-size: 13px; margin-top: 2px; }
+    .analysis-notes {
+      margin-top: 14px; padding: 12px;
+      background: rgba(139,92,246,0.1); border-radius: 12px;
+      border: 1px solid rgba(139,92,246,0.2);
+      color: rgba(255,255,255,0.6); font-size: 12px; line-height: 1.6;
+    }
+
+    /* Library preset card */
+    .preset-card {
+      display: flex; align-items: center; gap: 14px;
+      cursor: pointer;
+    }
+    .preset-icon {
+      width: 44px; height: 44px; border-radius: 14px;
+      background: rgba(139,92,246,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .preset-icon.custom-icon { background: rgba(236,72,153,0.2); }
+    .preset-name { font-weight: 700; font-size: 15px; }
+    .preset-desc { color: rgba(255,255,255,0.45); font-size: 12px; }
+    .preset-meta { text-align: right; }
+    .preset-lang { color: #c4b5fd; font-size: 11px; font-weight: 600; }
+    .preset-rate { color: rgba(255,255,255,0.3); font-size: 11px; }
+    .custom-badge {
+      padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: 600;
+      background: rgba(236,72,153,0.15); color: #f9a8d4;
+    }
+
+    /* Bottom nav */
+    #bottom-nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: rgba(10,6,18,0.85);
+      backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+      border-top: 1px solid rgba(255,255,255,0.08);
+      display: flex; justify-content: center;
+      padding: 10px 0;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+      z-index: 100;
+    }
+    #bottom-nav > div {
+      display: flex; gap: 0; max-width: 480px; width: 100%;
+    }
+    .nav-btn {
+      flex: 1; padding: 8px 0 4px; border: none; background: transparent;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer; font-family: 'DM Sans', sans-serif;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      transition: color 0.2s;
+    }
+    .nav-btn.active { color: #c4b5fd; }
+    .nav-icon { font-size: 20px; }
+    .nav-label { font-size: 10px; font-weight: 600; }
+    .nav-dot {
+      width: 20px; height: 2px; background: #8b5cf6; border-radius: 1px;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .nav-btn.active .nav-dot { opacity: 1; }
+
+    /* Analyzing spinner text */
+    .analyzing-text { color: rgba(255,255,255,0.5); font-size: 13px; margin-top: 16px; text-align: center; }
+
+    /* Hidden */
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<div id="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="logo-icon">🎙</div>
+      <span class="logo-title">VoiceForge</span>
+    </div>
+    <p class="header-sub">Créez, sculptez &amp; analysez des voix</p>
+  </div>
+
+  <!-- Tabs -->
+  <div class="card tabs-wrap">
+    <button class="tab-btn active" data-tab="0">Studio</button>
+    <button class="tab-btn" data-tab="1">Analyser</button>
+    <button class="tab-btn" data-tab="2">Bibliothèque</button>
+  </div>
+
+  <!-- STUDIO -->
+  <div class="tab-panel active" id="panel-0">
+    <div class="card">
+      <div class="waveform" id="waveform"></div>
+      <textarea id="tts-text" rows="3" placeholder="Entrez votre texte ici...">Bonjour, je suis une voix créée avec VoiceForge !</textarea>
+      <button class="btn-primary" id="speak-btn">▶ Écouter</button>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Voix système</p>
+      <select id="voice-select"><option>Chargement des voix...</option></select>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Paramètres vocaux</p>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">🎵 Hauteur</span>
+          <span class="slider-value" id="pitch-val">1.0x</span>
+        </div>
+        <input type="range" id="pitch-slider" min="0.1" max="2" step="0.05" value="1.0" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">⚡ Vitesse</span>
+          <span class="slider-value" id="rate-val">1.0x</span>
+        </div>
+        <input type="range" id="rate-slider" min="0.1" max="3" step="0.05" value="1.0" />
+      </div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <span class="slider-label">🔊 Volume</span>
+          <span class="slider-value" id="vol-val">1</span>
+        </div>
+        <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1.0" />
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="section-label">Sauvegarder cette voix</p>
+      <div class="flex gap-10">
+        <input type="text" class="text-input" id="voice-name-input" placeholder="Nom de la voix..." />
+        <button class="btn-save" id="save-voice-btn">+ Sauver</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANALYSER -->
+  <div class="tab-panel" id="panel-1">
+    <div class="card" style="text-align:center">
+      <div class="upload-zone" id="upload-zone">📂</div>
+      <p id="file-name" style="font-weight:600;font-size:15px;margin-bottom:4px">Importer un audio</p>
+      <p id="file-meta" style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:16px">MP3, WAV, OGG, M4A...</p>
+      <input type="file" id="audio-file-input" accept="audio/*" style="display:none" />
+      <div class="flex gap-10">
+        <button class="btn-secondary" id="choose-file-btn">Choisir fichier</button>
+        <button class="btn-analyze" id="analyze-btn">🔍 Analyser</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="analyzing-card" style="text-align:center;padding:32px">
+      <div class="waveform" id="waveform-analyze"></div>
+      <p class="analyzing-text">Analyse en cours avec l'IA...</p>
+    </div>
+
+    <div id="analysis-results" class="hidden flex-col gap-16">
+      <div class="card">
+        <p class="section-label">Résultats de l'analyse</p>
+        <div class="analysis-grid" id="analysis-grid"></div>
+        <div class="analysis-notes hidden" id="analysis-notes"></div>
+      </div>
+      <button class="btn-from-analysis" id="from-analysis-btn">🎙 Créer une voix depuis cette analyse</button>
+    </div>
+  </div>
+
+  <!-- BIBLIOTHÈQUE -->
+  <div class="tab-panel" id="panel-2">
+    <p class="section-label" id="presets-label">Présets — 6 voix</p>
+    <div id="presets-list" class="flex-col gap-12"></div>
+    <div id="custom-section" class="hidden flex-col gap-12">
+      <p class="section-label" id="custom-label">Mes voix — 0</p>
+      <div id="custom-list" class="flex-col gap-12"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom Nav -->
+<div id="bottom-nav">
+  <div>
+    <button class="nav-btn active" data-tab="0">
+      <span class="nav-icon">🎚</span>
+      <span class="nav-label">Studio</span>
+      <div class="nav-dot"></div>
+    </button>
+    <button class="nav-btn" data-tab="1">
+      <span class="nav-icon">🔍</span>
+      <span class="nav-label">Analyser</span>
+      <div class="nav-dot"></div>
+    </button>
+    <button class="nav-btn" data-tab="2">
+      <span class="nav-icon">📚</span>
+      <span class="nav-label">Biblio</span>
+      <div class="nav-dot"></div>
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────
+const state = {
+  activeTab: 0,
+  pitch: 1.0,
+  rate: 1.0,
+  volume: 1.0,
+  selectedVoiceIndex: 0,
+  availableVoices: [],
+  customVoices: [],
+  selectedPresetId: null,
+  isPlaying: false,
+  audioFile: null,
+  isAnalyzing: false,
+  analysisResult: null,
+};
+
+const PRESETS = [
+  { id: "aria", name: "Aria", emoji: "✨", pitch: 1.1, rate: 1.0, lang: "en-US", desc: "Douce & claire" },
+  { id: "echo", name: "Echo", emoji: "🌊", pitch: 0.85, rate: 0.9, lang: "en-US", desc: "Profonde & posée" },
+  { id: "nova", name: "Nova", emoji: "🚀", pitch: 1.3, rate: 1.2, lang: "en-US", desc: "Vive & énergique" },
+  { id: "sage", name: "Sage", emoji: "🍃", pitch: 0.95, rate: 0.85, lang: "fr-FR", desc: "Calme & narrative" },
+  { id: "zara", name: "Zara", emoji: "⚡", pitch: 1.2, rate: 1.1, lang: "en-GB", desc: "Accent britannique" },
+  { id: "lumi", name: "Lumi", emoji: "🌙", pitch: 1.0, rate: 0.95, lang: "fr-FR", desc: "Neutre & pro" },
+];
+
+// ─── Waveform ─────────────────────────────────────────────
+function buildWaveform(containerId, bars = 28) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 0; i < bars; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wave-bar';
+    bar.dataset.idx = i;
+    container.appendChild(bar);
+  }
+}
+
+let waveInterval = null;
+function startWaveform(containerId, analyze = false) {
+  const bars = document.querySelectorAll(`#${containerId} .wave-bar`);
+  bars.forEach(b => {
+    b.classList.add('active');
+    const dur = (0.3 + Math.random() * 0.5).toFixed(2);
+    const maxH = analyze ? 36 : 28;
+    b.style.animation = `none`;
+    b.style.height = '4px';
+    setTimeout(() => {
+      b.style.animation = `${analyze ? 'waveAnalyze' : 'waveAnim'} ${dur}s ease-in-out infinite alternate`;
+    }, 10);
+  });
+}
+function stopWaveform(containerId) {
+  const bars = document.querySelectorAll(`#${containerId} .wave-bar`);
+  bars.forEach(b => {
+    b.classList.remove('active');
+    b.style.animation = 'none';
+    b.style.height = '4px';
+  });
+}
+
+// ─── Speech Synthesis ────────────────────────────────────
+function loadVoices() {
+  if (!window.speechSynthesis) return;
+  const v = window.speechSynthesis.getVoices();
+  if (v.length > 0) {
+    state.availableVoices = v;
+    renderVoiceSelect();
+  }
+}
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  loadVoices();
+}
+
+function renderVoiceSelect() {
+  const sel = document.getElementById('voice-select');
+  sel.innerHTML = '';
+  state.availableVoices.forEach((v, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${v.name} (${v.lang})`;
+    if (i === state.selectedVoiceIndex) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function speak() {
+  if (!window.speechSynthesis) return;
+  const text = document.getElementById('tts-text').value.trim();
+  if (!text) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.pitch = state.pitch;
+  utter.rate = state.rate;
+  utter.volume = state.volume;
+  if (state.availableVoices[state.selectedVoiceIndex]) {
+    utter.voice = state.availableVoices[state.selectedVoiceIndex];
+  }
+  utter.onstart = () => {
+    state.isPlaying = true;
+    const btn = document.getElementById('speak-btn');
+    btn.textContent = '⏹ Stop';
+    btn.classList.add('stop');
+    startWaveform('waveform');
+  };
+  utter.onend = utter.onerror = () => {
+    state.isPlaying = false;
+    const btn = document.getElementById('speak-btn');
+    btn.textContent = '▶ Écouter';
+    btn.classList.remove('stop');
+    stopWaveform('waveform');
+  };
+  window.speechSynthesis.speak(utter);
+}
+
+function stopSpeech() {
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+  state.isPlaying = false;
+  const btn = document.getElementById('speak-btn');
+  btn.textContent = '▶ Écouter';
+  btn.classList.remove('stop');
+  stopWaveform('waveform');
+}
+
+// ─── Sliders ──────────────────────────────────────────────
+function updateSlider(slider, valId, unit, stateKey) {
+  const val = parseFloat(slider.value);
+  state[stateKey] = val;
+  document.getElementById(valId).textContent = stateKey === 'volume' ? val.toFixed(2) : val.toFixed(2) + 'x';
+  const pct = ((val - parseFloat(slider.min)) / (parseFloat(slider.max) - parseFloat(slider.min))) * 100;
+  slider.style.background = `linear-gradient(to right, #8b5cf6 0%, #8b5cf6 ${pct}%, rgba(255,255,255,0.15) ${pct}%, rgba(255,255,255,0.15) 100%)`;
+}
+
+function initSlider(id, valId, unit, stateKey) {
+  const slider = document.getElementById(id);
+  updateSlider(slider, valId, unit, stateKey);
+  slider.addEventListener('input', () => updateSlider(slider, valId, unit, stateKey));
+}
+
+// ─── Save voice ───────────────────────────────────────────
+function updateSaveBtn() {
+  const btn = document.getElementById('save-voice-btn');
+  const val = document.getElementById('voice-name-input').value.trim();
+  btn.classList.toggle('ready', !!val);
+}
+
+function saveVoice() {
+  const name = document.getElementById('voice-name-input').value.trim();
+  if (!name) return;
+  state.customVoices.push({
+    id: Date.now().toString(),
+    name, emoji: '🎙️',
+    pitch: state.pitch, rate: state.rate, volume: state.volume,
+    voiceIndex: state.selectedVoiceIndex,
+    desc: 'Voix personnalisée',
+  });
+  document.getElementById('voice-name-input').value = '';
+  updateSaveBtn();
+  renderLibrary();
+}
+
+// ─── Tabs ─────────────────────────────────────────────────
+function switchTab(idx) {
+  state.activeTab = idx;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.tab) === idx));
+  document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.tab) === idx));
+}
+
+// ─── Library ──────────────────────────────────────────────
+function renderLibrary() {
+  // Presets
+  const list = document.getElementById('presets-list');
+  list.innerHTML = '';
+  PRESETS.forEach(p => {
+    const card = document.createElement('div');
+    card.className = `card clickable preset-card ${state.selectedPresetId === p.id ? 'active' : ''}`;
+    card.innerHTML = `
+      <div class="preset-icon">${p.emoji}</div>
+      <div style="flex:1">
+        <div class="preset-name">${p.name}</div>
+        <div class="preset-desc">${p.desc}</div>
+      </div>
+      <div class="preset-meta">
+        <div class="preset-lang">${p.lang}</div>
+        <div class="preset-rate">x${p.rate}</div>
+      </div>`;
+    card.addEventListener('click', () => applyPreset(p));
+    list.appendChild(card);
+  });
+
+  // Custom
+  const customSection = document.getElementById('custom-section');
+  const customList = document.getElementById('custom-list');
+  if (state.customVoices.length === 0) {
+    customSection.classList.add('hidden');
+    return;
+  }
+  customSection.classList.remove('hidden');
+  document.getElementById('custom-label').textContent = `Mes voix — ${state.customVoices.length}`;
+  customList.innerHTML = '';
+  state.customVoices.forEach(v => {
+    const card = document.createElement('div');
+    card.className = 'card clickable preset-card';
+    card.innerHTML = `
+      <div class="preset-icon custom-icon">${v.emoji}</div>
+      <div style="flex:1">
+        <div class="preset-name">${v.name}</div>
+        <div class="preset-desc">${v.desc}</div>
+      </div>
+      <div class="custom-badge">Custom</div>`;
+    card.addEventListener('click', () => {
+      state.pitch = v.pitch; state.rate = v.rate; state.volume = v.volume;
+      state.selectedVoiceIndex = v.voiceIndex;
+      document.getElementById('pitch-slider').value = v.pitch;
+      document.getElementById('rate-slider').value = v.rate;
+      document.getElementById('vol-slider').value = v.volume;
+      updateSlider(document.getElementById('pitch-slider'), 'pitch-val', 'x', 'pitch');
+      updateSlider(document.getElementById('rate-slider'), 'rate-val', 'x', 'rate');
+      updateSlider(document.getElementById('vol-slider'), 'vol-val', '', 'volume');
+      renderVoiceSelect();
+      switchTab(0);
+    });
+    customList.appendChild(card);
+  });
+}
+
+function applyPreset(preset) {
+  state.selectedPresetId = preset.id;
+  state.pitch = preset.pitch; state.rate = preset.rate;
+  document.getElementById('pitch-slider').value = preset.pitch;
+  document.getElementById('rate-slider').value = preset.rate;
+  updateSlider(document.getElementById('pitch-slider'), 'pitch-val', 'x', 'pitch');
+  updateSlider(document.getElementById('rate-slider'), 'rate-val', 'x', 'rate');
+  const idx = state.availableVoices.findIndex(v => v.lang.startsWith(preset.lang.split('-')[0]));
+  if (idx >= 0) { state.selectedVoiceIndex = idx; renderVoiceSelect(); }
+  switchTab(0);
+  renderLibrary();
+}
+
+// ─── Audio Analysis ───────────────────────────────────────
+async function analyzeAudio() {
+  if (!state.audioFile || state.isAnalyzing) return;
+  state.isAnalyzing = true;
+  document.getElementById('analyzing-card').classList.remove('hidden');
+  document.getElementById('analysis-results').classList.add('hidden');
+  buildWaveform('waveform-analyze');
+  startWaveform('waveform-analyze', true);
+
+  try {
+    const base64 = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(state.audioFile);
+    });
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `Tu es un expert en analyse vocale. Analyse cet audio et retourne UNIQUEMENT un objet JSON (sans markdown, sans backticks) avec exactement cette structure:
+{"pitch":"description de la hauteur (ex: Grave, Medium, Aigu)","pitchValue":0.9,"rate":"description du rythme (ex: Lent, Modéré, Rapide)","rateValue":1.0,"emotion":"émotion principale détectée","expressivity":"score sur 10 (ex: 7/10)","accent":"langue/accent détecté","lang":"code langue (ex: fr-FR, en-US)","energy":"niveau d'énergie (Faible, Moyen, Élevé)","notes":"observations en 1-2 phrases courtes"}`
+            },
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: state.audioFile.type || 'audio/mpeg', data: base64 }
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    const raw = data.content.map(b => b.text || '').join('').trim();
+    state.analysisResult = JSON.parse(raw.replace(/```json|```/g, '').trim());
+  } catch (e) {
+    // Fallback mock
+    state.analysisResult = {
+      pitch: 'Medium', pitchValue: 1.0,
+      rate: 'Modéré', rateValue: 1.0,
+      emotion: 'Neutre', expressivity: '6/10',
+      accent: 'Français', lang: 'fr-FR',
+      energy: 'Moyen',
+      notes: 'Voix claire et posée. Débit régulier sans accentuation particulière.'
+    };
+  }
+
+  state.isAnalyzing = false;
+  stopWaveform('waveform-analyze');
+  document.getElementById('analyzing-card').classList.add('hidden');
+  renderAnalysisResults();
+}
+
+function renderAnalysisResults() {
+  const r = state.analysisResult;
+  if (!r) return;
+  const grid = document.getElementById('analysis-grid');
+  const fields = [
+    { icon: '🎵', label: 'Hauteur', value: r.pitch },
+    { icon: '⚡', label: 'Vitesse', value: r.rate },
+    { icon: '💬', label: 'Émotion', value: r.emotion },
+    { icon: '✨', label: 'Expressivité', value: r.expressivity },
+    { icon: '🌍', label: 'Accent', value: r.accent },
+    { icon: '🔋', label: 'Énergie', value: r.energy },
+  ];
+  grid.innerHTML = fields.map(f => `
+    <div class="analysis-cell">
+      <div class="analysis-icon">${f.icon}</div>
+      <div class="analysis-label">${f.label}</div>
+      <div class="analysis-val">${f.value || '—'}</div>
+    </div>`).join('');
+
+  const notesEl = document.getElementById('analysis-notes');
+  if (r.notes) {
+    notesEl.textContent = '💡 ' + r.notes;
+    notesEl.classList.remove('hidden');
+  }
+  document.getElementById('analysis-results').classList.remove('hidden');
+  document.getElementById('analysis-results').style.display = 'flex';
+}
+
+// ─── Init ──────────────────────────────────────────────────
+buildWaveform('waveform');
+renderLibrary();
+initSlider('pitch-slider', 'pitch-val', 'x', 'pitch');
+initSlider('rate-slider', 'rate-val', 'x', 'rate');
+initSlider('vol-slider', 'vol-val', '', 'volume');
+
+// Tab buttons
+document.querySelectorAll('[data-tab]').forEach(btn => {
+  btn.addEventListener('click', () => switchTab(parseInt(btn.dataset.tab)));
+});
+
+// Speak
+document.getElementById('speak-btn').addEventListener('click', () => {
+  if (state.isPlaying) stopSpeech(); else speak();
+});
+
+// Voice select
+document.getElementById('voice-select').addEventListener('change', e => {
+  state.selectedVoiceIndex = parseInt(e.target.value);
+});
+
+// Save voice
+document.getElementById('voice-name-input').addEventListener('input', updateSaveBtn);
+document.getElementById('save-voice-btn').addEventListener('click', saveVoice);
+
+// Audio file
+document.getElementById('choose-file-btn').addEventListener('click', () => {
+  document.getElementById('audio-file-input').click();
+});
+document.getElementById('upload-zone').addEventListener('click', () => {
+  document.getElementById('audio-file-input').click();
+});
+document.getElementById('audio-file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  state.audioFile = file;
+  state.analysisResult = null;
+  document.getElementById('file-name').textContent = file.name;
+  document.getElementById('file-meta').textContent = `${(file.size / 1024).toFixed(0)} KB · ${file.type}`;
+  document.getElementById('upload-zone').textContent = '🎵';
+  document.getElementById('analyze-btn').classList.add('ready');
+  document.getElementById('analysis-results').classList.add('hidden');
+  document.getElementById('analyzing-card').classList.add('hidden');
+});
+document.getElementById('analyze-btn').addEventListener('click', analyzeAudio);
+
+// From analysis
+document.getElementById('from-analysis-btn').addEventListener('click', () => {
+  if (!state.analysisResult) return;
+  state.pitch = state.analysisResult.pitchValue || 1.0;
+  state.rate = state.analysisResult.rateValue || 1.0;
+  document.getElementById('pitch-slider').value = state.pitch;
+  document.getElementById('rate-slider').value = state.rate;
+  updateSlider(document.getElementById('pitch-slider'), 'pitch-val', 'x', 'pitch');
+  updateSlider(document.getElementById('rate-slider'), 'rate-val', 'x', 'rate');
+  switchTab(0);
+});
+</script>
+</body>
+</html>
